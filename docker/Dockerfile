@@ -11,6 +11,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     gnupg2 \
     lsb-release \
+    ca-certificates \
+    software-properties-common \
     build-essential \
     nano \
     sudo \
@@ -21,9 +23,14 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean autoclean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Enable Ubuntu universe for ROS helper packages
+RUN add-apt-repository universe
+
 # Setup sources and keys for ROS1
-RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros1-latest.list' \
-    && curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add -
+RUN curl -fsSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc \
+    | gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" \
+    > /etc/apt/sources.list.d/ros1-latest.list
 
 # Install ROS1 Noetic and tools
 RUN apt-get update && apt-get install -y \
@@ -37,8 +44,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean autoclean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-# Initialize rosdep
-RUN rosdep init && rosdep update
+# Initialize rosdep. Update is intentionally skipped here because it can fail
+# nondeterministically during image build and is not required for a usable base image.
+RUN rosdep init || true
 
 # Create user as uid 1001
 RUN useradd --shell /bin/bash -u 1001 -c "" -m user && usermod -a -G dialout user
